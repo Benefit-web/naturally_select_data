@@ -1,0 +1,126 @@
+<?php
+/*
+ * This file is part of EC-CUBE
+ *
+ * Copyright(c) 2000-2013 LOCKON CO.,LTD. All Rights Reserved.
+ *
+ * http://www.lockon.co.jp/
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ */
+
+require_once CLASS_REALDIR . 'SC_CartSession.php';
+
+class SC_CartSession_Ex extends SC_CartSession {
+    
+    /**
+     * カートの内容を計算する.
+     *
+     * カートの内容を計算し, 下記のキーを保持する連想配列を返す.
+     * カートに入れた商品が3口未満の場合、送料200円対応追加
+     * 
+     * - tax: 税額
+     * - subtotal: カート内商品の小計
+     * - deliv_fee: カート内商品の合計送料
+     * - total: 合計金額
+     * - payment_total: お支払い合計
+     * - add_point: 加算ポイント
+     *
+     * @param integer $productTypeId 商品種別ID
+     * @param SC_Customer $objCustomer ログイン中の SC_Customer インスタンス
+     * @param integer $use_point 今回使用ポイント
+     * @param integer|array $deliv_pref 配送先都道府県ID.
+                                        複数に配送する場合は都道府県IDの配列
+     * @param integer $charge 手数料
+     * @param integer $discount 値引き
+     * @param integer $deliv_id 配送業者ID
+     * @param integer $order_quantity カートに入れた商品口数
+     * @return array カートの計算結果の配列
+     */
+    function calculate($productTypeId, &$objCustomer, $use_point = 0,
+        $deliv_pref = '', $charge = 0, $discount = 0, $deliv_id = 0, $order_quantity = 0, $select_packing = false
+    ) {
+
+        $results = array();
+        $total_point = $this->getAllProductsPoint($productTypeId);
+        $results['tax'] = $this->getAllProductsTax($productTypeId);
+        $results['subtotal'] = $this->getAllProductsTotal($productTypeId);
+        $results['deliv_fee'] = 0;
+
+        // 商品ごとの送料を加算
+        if (OPTION_PRODUCT_DELIV_FEE == 1) {
+            $cartItems = $this->getCartList($productTypeId);
+            foreach ($cartItems as $arrItem) {
+                $results['deliv_fee'] += $arrItem['productsClass']['deliv_fee'] * $arrItem['quantity'];
+            }
+        }
+        
+        // ギフト梱包を希望する場合は\1,080追加する
+        $results['packing_cost'] = 0;
+        if($select_packing){
+            $results['packing_cost'] = 1080;
+        }
+        
+        // 配送業者の送料を加算
+        if (OPTION_DELIV_FEE == 1
+            && !SC_Utils_Ex::isBlank($deliv_pref)
+            && !SC_Utils_Ex::isBlank($deliv_id)) {
+            $results['deliv_fee'] += $this->sfGetDelivFee($deliv_pref, $deliv_id);
+        }
+
+        // 送料無料チェックの前に商品口数が3口未満の場合、送料200円対応を行う
+        $results['mail_shipment_flg'] = false;
+        if($order_quantity <= 3){
+            
+            // ギフト梱包の場合は通常送料
+            if(!$select_packing){
+                $results['deliv_fee'] = 200;
+                $results['mail_shipment_flg'] = true;
+            }
+        }
+        
+        // 送料無料チェック
+        if ($this->isDelivFree($productTypeId)) {
+            $results['deliv_fee'] = 0;
+        }
+
+        // 合計を計算
+        $results['total'] = $results['subtotal'];
+        $results['total'] += $results['packing_cost'];
+        $results['total'] += $results['deliv_fee'];
+        $results['total'] += $charge;
+        $results['total'] -= $discount;
+
+        // お支払い合計
+        $results['payment_total'] = $results['total'] - $use_point * POINT_VALUE;
+
+        // 加算ポイントの計算
+        if (USE_POINT !== false) {
+            $results['add_point'] = SC_Helper_DB_Ex::sfGetAddPoint($total_point, $use_point);
+            if ($objCustomer != '') {
+                // 誕生日月であった場合
+                if ($objCustomer->isBirthMonth()) {
+                    $results['birth_point'] = BIRTH_MONTH_POINT;
+                    $results['add_point'] += $results['birth_point'];
+                }
+            }
+            if ($results['add_point'] < 0) {
+                $results['add_point'] = 0;
+            }
+        }
+        return $results;
+    }
+    
+}

@@ -1,0 +1,6 @@
+<?php /* Smarty version 2.6.26, created on 2014-11-05 03:15:56
+         compiled from /var/www/html/naturally_select/html/../../../data/Smarty/templates/mobile/products/search.tpl */ ?>
+<?php require_once(SMARTY_CORE_DIR . 'core.load_plugins.php');
+smarty_core_load_plugins(array('plugins' => array(array('modifier', 'script_escape', '/var/www/html/naturally_select/html/../../../data/Smarty/templates/mobile/products/search.tpl', 28, false),array('modifier', 'h', '/var/www/html/naturally_select/html/../../../data/Smarty/templates/mobile/products/search.tpl', 31, false),)), $this); ?>
+
+<?php echo 'お探しの商品名・型番を入力してください。<br><form method="get" action="'; ?><?php echo ((is_array($_tmp=@ROOT_URLPATH)) ? $this->_run_mod_handler('script_escape', true, $_tmp) : smarty_modifier_script_escape($_tmp)); ?><?php echo 'products/list.php"><center><input type="hidden" name="mode" value="search"><input type="text" name="name" size="18" maxlength="50" value="'; ?><?php echo ((is_array($_tmp=((is_array($_tmp=$_GET['name'])) ? $this->_run_mod_handler('script_escape', true, $_tmp) : smarty_modifier_script_escape($_tmp)))) ? $this->_run_mod_handler('h', true, $_tmp) : smarty_modifier_h($_tmp)); ?><?php echo '"><br><input type="submit" name="search" value="検索"></center></form>'; ?>
